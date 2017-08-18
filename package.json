@@ -1,0 +1,19 @@
+{
+  "name": "ship-rotated-aws-logs-to-es",
+  "version": "1.0.0",
+  "description": "This script is only relevent to you if you use ELK stack to analyse your server logs.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alexjv89/ship-rotated-aws-logs-to-es.git"
+  },
+  "author": "Alex J V(alexjv89 at google's email client)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/alexjv89/ship-rotated-aws-logs-to-es/issues"
+  },
+  "homepage": "https://github.com/alexjv89/ship-rotated-aws-logs-to-es#readme"
+}
