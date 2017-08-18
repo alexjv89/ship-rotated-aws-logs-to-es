@@ -16,3 +16,7 @@ For one of the above reason or other, I typically end up having to re-index the 
 
 ## Basic defaults
 This script can be modified to work with any rotated log files. This script is written with default assumption that you are using AWS Beanstalk on your application server. So the location and structure of storage of log rotated files assumes AWS defaults.
+
+## How to use
+1. `npm install`
+2. update config.js

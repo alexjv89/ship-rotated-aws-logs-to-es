@@ -15,5 +15,11 @@
   "bugs": {
     "url": "https://github.com/alexjv89/ship-rotated-aws-logs-to-es/issues"
   },
-  "homepage": "https://github.com/alexjv89/ship-rotated-aws-logs-to-es#readme"
+  "homepage": "https://github.com/alexjv89/ship-rotated-aws-logs-to-es#readme",
+  "dependencies": {
+    "async": "^2.5.0",
+    "aws-sdk": "^2.100.0",
+    "fs": "0.0.1-security",
+    "readline": "^1.3.0"
+  }
 }
