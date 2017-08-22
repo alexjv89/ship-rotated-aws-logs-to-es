@@ -189,7 +189,6 @@ var processLogsForADay = function(day,callback){
 		async.apply(queryElasticSearch,start,end),
 		processAllRelevantKeys,
 	],function(err,results){
-		console.log('\n\n');
 		console.log('----------------------------------------------------------------');
 		console.log('One days logs processed');
 		console.log('----------------------------------------------------------------');
@@ -251,7 +250,17 @@ var processManyDaysLogs = function(){
 			});
 		}
 	},function(err,result){
-		console.log('End');
+		if(err && err!='done'){
+			console.log('*&*(%*&%$&^$# - we go an error');
+			console.log(err);
+		}
+		else{
+			console.log('\n\n');
+			console.log('================================================================');
+			console.log('Moved all logs from '+config.start_date+' to '+config.end_date+' to Filebeat');
+			console.log('================================================================');
+		}
+
 	});
 }
 processManyDaysLogs();
