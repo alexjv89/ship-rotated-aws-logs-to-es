@@ -185,12 +185,13 @@ var processLogsForADay = function(day,callback){
 	console.log('----------------------------------------------------------------');
 	var start=day.getTime();
 	var end = day.getTime()+24*60*60*1000; // add one day
+	relevantKeys=[];
 	async.series([
 		async.apply(queryElasticSearch,start,end),
 		processAllRelevantKeys,
 	],function(err,results){
 		console.log('----------------------------------------------------------------');
-		console.log('One days logs processed');
+		console.log(relevantKeys.length+' log files for '+day.toISOString()+' processed');
 		console.log('----------------------------------------------------------------');
 		callback(err);
 	});
