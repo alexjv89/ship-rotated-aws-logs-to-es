@@ -98,7 +98,7 @@ var getShortKey=function(longKey){
  */
 var processAllRelevantKeys=function(callback){
 	console.log(' - Start processing all logs');
-	async.eachLimit(relevantKeys,5,function(item,callback){
+	async.eachSeries(relevantKeys,function(item,callback){
 				// console.log(item);
 		var temp = item.Key.split('/');
 		var instance_id=temp[temp.length-2];
