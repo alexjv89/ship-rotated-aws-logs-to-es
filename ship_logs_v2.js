@@ -16,8 +16,14 @@ var zlib     = require('zlib');
 var readline = require('readline');
 var AWS = require('aws-sdk');
 var s3 = new AWS.S3({accessKeyId:config.accessKeyId,secretAccessKey:config.secretAccessKey});
+var stats={
+	lines_count:0,
+	file_end_pos:{},
+}
+var relevantKeys=[];
+if(fs.existsSync('./nodejs.log'))
+	fs.unlinkSync("./nodejs.log"); // delete the file, to start with and empty file
 
-var relevantKeys=[]
 
 /**
  * this gets all the log files from elastic search that match a file type
@@ -26,7 +32,116 @@ var relevantKeys=[]
  */
 
 
+/**
+ * this is used for getting the short key from long key
+ * @param  {[type]} longKey [description]
+ * @return {[type]}         [description]
+ */
+var getShortKey=function(longKey){
+	var temp = longKey.split('/');
+	shortKey = temp[temp.length-1];
+	return shortKey;
+}
 // console.log(JSON.stringify(body));
+
+
+
+
+
+/**
+ * Any transformations that you want to do to this line
+ * @param  {[type]} line [description]
+ * @return {[type]}      [description]
+ */
+var transformLine = function(line){
+	line = line.replace('"app_env":"production"','"app_env":"pro"');
+	line = line.replace('"app_env":"prod"','"app_env":"pro"');
+	line = line.replace('"app_env":"development"','"app_env":"dev"');
+	return line;
+}
+
+/**
+ * downloads one file and saves it to /logs as a .gz
+ * @param  {[type]}   bucket   [description]
+ * @param  {[type]}   key      [description]
+ * @param  {Function} callback [description]
+ * @return {[type]}            [description]
+ */
+var downloadOneFile=function(bucket,key,callback){
+	shortKey = getShortKey(key);
+	if (fs.existsSync('logs/'+shortKey)) {
+    console.log('  - file already downloaded');
+		callback(null);
+	}
+	else{
+		console.log('  - starting to download a file now');
+		s3.getObject({Bucket:bucket,Key:key},function(err,data){
+			if(err){
+				// console.log(err);
+				callback(err);	
+			}
+			else{
+				// console.log(data);
+				 // last item
+				fs.writeFile('logs/'+shortKey, data.Body, function(err) {
+				    if(err) {
+				        console.log(err);
+				        callback(err);
+				    }
+				    else{
+					    console.log("  - new file downloaded");
+					    callback(null);
+				    }
+				}); 
+			}
+		});
+	}
+}
+
+var sendLinesToFilebeat = function(file,callback){
+	var lineReader = readline.createInterface({
+	  input: fs.createReadStream(file).pipe(zlib.createGunzip())
+	});
+
+	var n = 0;
+	lineReader.on('line',function(line,lineCount,byteCount){
+		n += 1
+		line=transformLine(line);
+		fs.appendFileSync("./nodejs.log", line.toString() + "\n");
+	});
+	lineReader.on("error",function(e){
+		callback(e);
+	});
+	lineReader.on("close",function(){
+		console.log('  - '+n + ' lines send to filebeat');
+		stats.lines_count+=n;
+		stats.file_end_pos[file]=stats.lines_count;
+		callback(null);
+	});
+}
+
+
+/**
+ * wrapper function that defines everything that needs to be done to a relevant log file
+ * @param  {[type]}   key      full key
+ * @param  {Function} callback [description]
+ */
+var processOneFile = function(key,callback){
+	var shortKey=getShortKey(key);
+
+	async.series([
+		async.apply(downloadOneFile,config.bucket,key),
+		async.apply(sendLinesToFilebeat,'logs/'+shortKey),
+
+	],function(err,result){
+		// console.log(' - this file is processed');
+		callback(err);
+	});
+}
+
+
+
+
 var queryElasticSearch=function(start,end,callback){
 	var request = require("request");
 	var body = {
@@ -82,16 +197,6 @@ var queryElasticSearch=function(start,end,callback){
 }
 
 /**
- * this is used for getting the short key from long key
- * @param  {[type]} longKey [description]
- * @return {[type]}         [description]
- */
-var getShortKey=function(longKey){
-	var temp = longKey.split('/');
-	shortKey = temp[temp.length-1];
-	return shortKey;
-}
-/**
  * this is process all keys one by one in series or parallel
  * @param  {Function} callback [description]
  * @return {[type]}            [description]
@@ -115,66 +220,8 @@ var processAllRelevantKeys=function(callback){
 }
 
 /**
- * Any transformations that you want to do to this line
- * @param  {[type]} line [description]
- * @return {[type]}      [description]
- */
-var transformLine = function(line){
-	line = line.replace('"app_env":"production"','"app_env":"pro"');
-	line = line.replace('"app_env":"prod"','"app_env":"pro"');
-	line = line.replace('"app_env":"development"','"app_env":"dev"');
-	return line;
-}
-
-
-/**
- * wrapper function that defines everything that needs to be done to a relevant log file
- * @param  {[type]}   key      full key
- * @param  {Function} callback [description]
- */
-var processOneFile = function(key,callback){
-	var shortKey=getShortKey(key);
-
-	async.series([
-		async.apply(downloadOneFile,config.bucket,key),
-		async.apply(sendLinesToFilebeat,'logs/'+shortKey),
-
-	],function(err,result){
-		// console.log(' - this file is processed');
-		callback(err);
-	});
-}
-
-
-var sendLinesToFilebeat = function(file,callback){
-	var lineReader = readline.createInterface({
-	  input: fs.createReadStream(file).pipe(zlib.createGunzip())
-	});
-
-	var n = 0;
-	lineReader.on('line',function(line,lineCount,byteCount){
-	  n += 1
-	  line=transformLine(line);
-	  fs.appendFileSync("./nodejs.log", line.toString() + "\n");
-	});
-	lineReader.on("error",function(e){
-		callback(e);
-	});
-	lineReader.on("close",function(){
-		console.log('  - '+n + ' lines send to filebeat');
-		callback(null);
-	});
-}
-
-/**
  * this process one days worth of logs
  * @param  {[type]}   day      date obj - start of the day
- * @param  {Function} callback [description]
- * @return {[type]}            [description]
- */
-
-/**
- * [processLogsForADay description]
  * @param  {Function} callback [description]
  * @return {[type]}            [description]
  */
@@ -197,43 +244,6 @@ var processLogsForADay = function(day,callback){
 	});
 }
 
-/**
- * downloads one file and saves it to /logs as a .gz
- * @param  {[type]}   bucket   [description]
- * @param  {[type]}   key      [description]
- * @param  {Function} callback [description]
- * @return {[type]}            [description]
- */
-var downloadOneFile=function(bucket,key,callback){
-	shortKey = getShortKey(key);
-	if (fs.existsSync('logs/'+shortKey)) {
-    console.log('  - file already downloaded');
-		callback(null);
-	}
-	else{
-		console.log('  - starting to download a file now');
-		s3.getObject({Bucket:bucket,Key:key},function(err,data){
-			if(err){
-				// console.log(err);
-				callback(err);	
-			}
-			else{
-				// console.log(data);
-				 // last item
-				fs.writeFile('logs/'+shortKey, data.Body, function(err) {
-				    if(err) {
-				        console.log(err);
-				        callback(err);
-				    }
-				    else{
-					    console.log("  - new file downloaded");
-					    callback(null);
-				    }
-				}); 
-			}
-		});
-	}
-}
 
 
 var processManyDaysLogs = function(){
@@ -259,7 +269,9 @@ var processManyDaysLogs = function(){
 			console.log('\n\n');
 			console.log('================================================================');
 			console.log('Moved all logs from '+config.start_date+' to '+config.end_date+' to Filebeat');
+			console.log('Lines count - 'stats.lines_count);
 			console.log('================================================================');
+
 		}
 
 	});
