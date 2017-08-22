@@ -27,7 +27,7 @@ var relevantKeys=[]
 
 
 // console.log(JSON.stringify(body));
-var queryElasticSearch=function(callback){
+var queryElasticSearch=function(start,end,callback){
 	var request = require("request");
 	var body = {
 		"size": 1000,
@@ -43,8 +43,10 @@ var queryElasticSearch=function(callback){
 					{
 						"range": {
 							"log_timestamp": {
-								"gte": new Date(config.start_date).getTime(),
-								"lte": new Date(config.end_date).getTime(),
+								"gte": start,
+								// "gte": new Date(config.start_date).getTime(),
+								"lt": end,
+								// "lte": new Date(config.end_date).getTime(),
 								"format": "epoch_millis"
 							}
 						}
@@ -96,7 +98,7 @@ var getShortKey=function(longKey){
  */
 var processAllRelevantKeys=function(callback){
 	console.log(' - Start processing all logs');
-	async.eachLimit(relevantKeys,1,function(item,callback){
+	async.eachLimit(relevantKeys,5,function(item,callback){
 				// console.log(item);
 		var temp = item.Key.split('/');
 		var instance_id=temp[temp.length-2];
@@ -166,22 +168,32 @@ var sendLinesToFilebeat = function(file,callback){
 
 /**
  * this process one days worth of logs
+ * @param  {[type]}   day      date obj - start of the day
  * @param  {Function} callback [description]
  * @return {[type]}            [description]
  */
-var processOneDaysLogs = function(callback){
+
+/**
+ * [processLogsForADay description]
+ * @param  {Function} callback [description]
+ * @return {[type]}            [description]
+ */
+var processLogsForADay = function(day,callback){
 	console.log('\n\n');
 	console.log('----------------------------------------------------------------');
-	console.log('Starting to process one day\'s logs');
+	console.log('Starting to process logs for - '+day.toISOString());
 	console.log('----------------------------------------------------------------');
+	var start=day.getTime();
+	var end = day.getTime()+24*60*60*1000; // add one day
 	async.series([
-		queryElasticSearch,
+		async.apply(queryElasticSearch,start,end),
 		processAllRelevantKeys,
-	],function(err,callback){
+	],function(err,results){
 		console.log('\n\n');
 		console.log('----------------------------------------------------------------');
 		console.log('One days logs processed');
 		console.log('----------------------------------------------------------------');
+		callback(err);
 	});
 }
 
@@ -223,4 +235,24 @@ var downloadOneFile=function(bucket,key,callback){
 	}
 }
 
-processOneDaysLogs();
+
+var processManyDaysLogs = function(){
+	console.log('Start');
+	var day = new Date(config.start_date);
+	async.forever(function(next){
+		// console.log(day.toISOString());
+		if(day.getTime() == new Date(config.end_date).getTime())
+			next('done');
+		else{
+			// console.log(day.toISOString());
+			processLogsForADay(day,function(err,result){
+				day = new Date(day.getTime()+24*60*60*1000);
+				next(null);
+			});
+		}
+	},function(err,result){
+		console.log('End');
+	});
+}
+processManyDaysLogs();
+
