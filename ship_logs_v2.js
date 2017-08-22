@@ -269,7 +269,7 @@ var processManyDaysLogs = function(){
 			console.log('\n\n');
 			console.log('================================================================');
 			console.log('Moved all logs from '+config.start_date+' to '+config.end_date+' to Filebeat');
-			console.log('Lines count - 'stats.lines_count);
+			console.log('Lines count - '+stats.lines_count);
 			console.log('================================================================');
 
 		}
