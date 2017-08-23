@@ -135,7 +135,9 @@ var processOneFile = function(key,callback){
 
 	],function(err,result){
 		// console.log(' - this file is processed');
-		callback(err);
+		setTimeout(function(){
+			callback(err);
+		}, config.delay_btw_files || 1);
 	});
 }
 
