@@ -177,8 +177,13 @@ var queryElasticSearch=function(start,end,callback){
 		}
 	};
 	// console.log(JSON.stringify(body));
+	var location ='';
+	if(config.elasticsearch.user && config.elasticsearch.password)
+		location= config.elasticsearch.protocol+'://'+config.elasticsearch.user+':'+config.elasticsearch.password+'@'+config.elasticsearch.host;
+	else
+		location= config.elasticsearch.protocol+'://'+config.elasticsearch.host;
 	var options = { method: 'POST',
-		url: 'https://search-highlyreco-5-3-ghskwsnysgc4nqmuevh373svqe.us-east-1.es.amazonaws.com/c-rotated-logs/_search',
+		url: location+'/c-rotated-logs/_search',
 		headers:{ 'postman-token': '3b91b7a4-fc2a-d5eb-7534-d439b163ee6a',
 		'cache-control': 'no-cache' },
 		body: JSON.stringify(body)
